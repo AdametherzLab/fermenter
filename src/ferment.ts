@@ -1,5 +1,6 @@
 import * as crypto from 'crypto';
 import type { FermentSession, FermentStage, FermentType, Reading, PredictionResult } from './types.js';
+import { validateReading, SensorValidationError } from './sensor-validation.js';
 
 /** Minimum number of readings required for stage transition analysis */
 const MIN_READINGS_FOR_ANALYSIS = 6;
@@ -38,9 +39,11 @@ export function createSession(params: {
 
 /**
  * Append a new reading to the session and recalculate stage/prediction.
+ * Validates sensor readings for type correctness and plausible ranges before accepting.
  * @param session - Session to update
  * @param reading - New measurement data
  * @returns New FermentSession with updated readings and stage
+ * @throws {SensorValidationError} If reading values are out of range or invalid
  * @throws {Error} If reading timestamp is out of order
  * @example
  * const newSession = logReading(session, {
@@ -49,6 +52,7 @@ export function createSession(params: {
  * });
  */
 export function logReading(session: FermentSession, reading: Reading): FermentSession {
+  validateReading(reading);
   validateReadingChronology(session, reading);
   const newReadings = [...session.readings, reading];
   

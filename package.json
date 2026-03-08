@@ -1,6 +1,6 @@
 {
   "name": "@adametherzlab/fermenter",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Universal fermentation tracker — pH, gravity, gas production with completion prediction",
   "type": "module",
   "main": "./dist/index.js",

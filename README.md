@@ -10,111 +10,95 @@
 - 🔮 Completion prediction using linear regression
 - 🗃️ Session storage with batch comparison tools
 - 🌍 Supports beer, wine, kombucha, kimchi, sauerkraut, and custom ferments
+- 🛡️ Robust sensor validation with configurable ranges and descriptive errors
 - 🧪 Built with TypeScript strict mode and Bun/Node.js 20+
 
 ## Installation
 
-```bash
+bash
 npm install @adametherzlab/fermenter
 # or
 bun add @adametherzlab/fermenter
-```
 
-## Quick Start 🚀
 
-```typescript
-import { 
-  createSession, 
-  logReading,
-  predictCompletion,
-  saveSession,
-  FermentType
-} from '@adametherzlab/fermenter';
+## Quick Start
 
-// Create new fermentation session
-const session = createSession({
-  name: 'Wildflower Mead',
-  type: FermentType.WINE
-});
 
-// Log initial measurements
+import { createSession, logReading, FermentType } from '@adametherzlab/fermenter';
+
+const session = createSession({ name: 'My IPA', type: FermentType.BEER });
 const updated = logReading(session, {
   recordedAt: new Date(),
-  temperature: 23.5,
-  specificGravity: 1.102
+  specificGravity: 1.045,
+  temperature: 20,
 });
 
-// Get completion prediction
-const prediction = predictCompletion(updated);
-console.log(`Fermentation complete in ${prediction?.estimatedHours}h`);
 
-// Save session to ~/.fermenter
-await saveSession(updated);
-```
+## Sensor Validation
 
-## API Reference 📖
+All readings are validated before being accepted. Invalid or out-of-range values throw a `SensorValidationError` with the metric name, invalid value, and valid range.
 
-| Function | Parameters | Returns | Example |
-|----------|------------|---------|---------|
-| **createSession**<br>`(params: { name: string; type: FermentType })` | `name`: Session name<br>`type`: FermentType enum | `FermentSession` | `createSession({ name: 'Sauerkraut', type: FermentType.VEGETABLE })` |
-| **logReading**<br>`(session: FermentSession, reading: Reading)` | `session`: Active session<br>`reading`: Measurement data | `FermentSession` | `logReading(session, { temperature: 22, specificGravity: 1.045 })` |
-| **fitCurve**<br>`(points: ReadonlyArray<{ x: number; y: number }>)` | `points`: Time-series data points | `RegressionResult` | `fitCurve([{x: 0, y: 1.065}, {x: 48, y: 1.040}])` |
-| **predictCompletion**<br>`(session: FermentSession)` | `session`: Session with readings | `PredictionResult \| null` | `predictCompletion(activeSession)` |
-| **saveSession**<br>`(session: FermentSession)` | `session`: Session to save | `Promise<void>` | `await saveSession(completedSession)` |
-| **compareBatches**<br>`(session1: FermentSession, session2: FermentSession)` | `session1`: First batch<br>`session2`: Second batch | `ComparisonResult` | `compareBatches(batchA, batchB)` |
+### Default Ranges
 
-## Advanced Usage 🧪
+| Metric | Min | Max | Unit |
+|--------|-----|-----|------|
+| pH | 0 | 14 | pH |
+| temperature | -20 | 100 | °C |
+| specificGravity | 0.800 | 1.200 | SG |
+| gasProduction | 0 | 1000 | L/hr |
 
-```typescript
-import { 
-  createSession, logReading, predictCompletion,
-  saveSession, loadSession, compareBatches,
-  exportSessions, FermentType
-} from '@adametherzlab/fermenter';
+### Custom Ranges
 
-// Create and track beer fermentation
-const brewDay = createSession({
-  name: 'Barleywine',
-  type: FermentType.BEER
-});
 
-// Simulate daily gravity readings
-let currentSession = brewDay;
-for (let day = 1; day <= 14; day++) {
-  currentSession = logReading(currentSession, {
-    recordedAt: new Date(Date.now() + day * 86400000),
-    specificGravity: 1.090 - (day * 0.005)
-  });
+import { validateReading, SENSOR_RANGES } from '@adametherzlab/fermenter';
+
+const strictRanges = {
+  ...SENSOR_RANGES,
+  pH: { min: 3, max: 5, unit: 'pH' },
+};
+
+validateReading(reading, strictRanges);
+
+
+### Error Handling
+
+
+import { logReading, SensorValidationError } from '@adametherzlab/fermenter';
+
+try {
+  logReading(session, { recordedAt: new Date(), pH: 15 });
+} catch (err) {
+  if (err instanceof SensorValidationError) {
+    console.error(err.metric);     // 'pH'
+    console.error(err.value);      // 15
+    console.error(err.validRange); // { min: 0, max: 14, unit: 'pH' }
+  }
 }
 
-// Predict and save
-const finalPrediction = predictCompletion(currentSession);
-await saveSession(currentSession);
 
-// Compare with previous batch
-const lastBatch = await loadSession('previous-barleywine-id');
-if (lastBatch) {
-  const analysis = compareBatches(currentSession, lastBatch);
-  console.log(`Current batch ferments ${analysis.rateComparison}% faster`);
-}
+## API
 
-// Export session data
-const csvData = exportSessions([currentSession], 'csv');
-console.log(csvData);
-```
+### `createSession(params)` → `FermentSession`
+Create a new fermentation tracking session.
 
-## Supported Ferment Types 🥫
+### `logReading(session, reading)` → `FermentSession`
+Append a validated sensor reading. Throws `SensorValidationError` for invalid data.
 
-- `FermentType.BEER` (ale, lager, wild)
-- `FermentType.WINE` (grape, fruit, mead)
-- `FermentType.KOMBUCHA` (standard, jun)
-- `FermentType.VEGETABLE` (kimchi, sauerkraut, hot sauce)
-- Custom types via string union: `'custom:yogurt'`
+### `validateReading(reading, ranges?)` → `void`
+Standalone validation. Throws `SensorValidationError` if any metric is out of range, non-finite, or missing.
 
-## Contributing 🤝
+### `predictCompletion(session)` → `PredictionResult | null`
+Estimate fermentation completion using linear regression on available metrics.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and contribution guidelines.
+### `saveSession(session)` / `loadSession(id)` → persistence
+Store and retrieve sessions from disk.
+
+### `exportSessions(sessions, format)` → `string`
+Export sessions as JSON or CSV.
+
+### `compareBatches(session1, session2)` → `ComparisonResult`
+Compare two sessions of the same fermentation type.
 
 ## License
 
-MIT © [AdametherzLab](https://github.com/AdametherzLab)
+MIT
