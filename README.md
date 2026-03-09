@@ -1,27 +1,26 @@
-# fermenter 🍶🔥
+# fermenter \ud83c\udf76\ud83d\udd25
 
 [![CI](https://github.com/AdametherzLab/fermenter/actions/workflows/ci.yml/badge.svg)](https://github.com/AdametherzLab/fermenter/actions) [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)](https://www.typescriptlang.org/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **Precision fermentation tracking for brewers, vintners, and fermentophiles.** Track pH, gravity, temperature, and gas production across any fermentation process while predicting completion times with statistical modeling.
 
-## Features ✅
+## Features
 
-- 📊 Multi-metric tracking (specific gravity, pH, temperature, pressure)
-- 🔮 Completion prediction using linear regression
-- 🗃️ Session storage with batch comparison tools
-- 🌍 Supports beer, wine, kombucha, kimchi, sauerkraut, and custom ferments
-- 🛡️ Robust sensor validation with configurable ranges and descriptive errors
-- 🧪 Built with TypeScript strict mode and Bun/Node.js 20+
+- Multi-metric tracking (specific gravity, pH, temperature, pressure)
+- Completion prediction using linear regression
+- Session storage with batch comparison tools
+- Supports beer, wine, kombucha, kimchi, sauerkraut, and custom ferments
+- Robust sensor validation with configurable ranges and descriptive errors
+- **Web dashboard** for visual session management (create, view, log readings, export)
+- Built with TypeScript strict mode and Bun/Node.js 20+
 
 ## Installation
 
 bash
 npm install @adametherzlab/fermenter
-# or
-bun add @adametherzlab/fermenter
 
 
-## Quick Start
+## Quick Start (Library)
 
 
 import { createSession, logReading, FermentType } from '@adametherzlab/fermenter';
@@ -34,70 +33,74 @@ const updated = logReading(session, {
 });
 
 
-## Sensor Validation
+## Web Dashboard
 
-All readings are validated before being accepted. Invalid or out-of-range values throw a `SensorValidationError` with the metric name, invalid value, and valid range.
+Start the built-in web UI to manage sessions from your browser:
 
-### Default Ranges
+bash
+# Using bun
+bun run serve
 
-| Metric | Min | Max | Unit |
-|--------|-----|-----|------|
-| pH | 0 | 14 | pH |
-| temperature | -20 | 100 | °C |
-| specificGravity | 0.800 | 1.200 | SG |
-| gasProduction | 0 | 1000 | L/hr |
-
-### Custom Ranges
+# Or with environment variable for port
+PORT=8080 bun run serve
 
 
-import { validateReading, SENSOR_RANGES } from '@adametherzlab/fermenter';
+Open `http://localhost:3000` to access the dashboard.
 
-const strictRanges = {
-  ...SENSOR_RANGES,
-  pH: { min: 3, max: 5, unit: 'pH' },
-};
+### Dashboard Features
 
-validateReading(reading, strictRanges);
+- **Create sessions** — pick a name and ferment type (Beer, Wine, Kombucha, Kimchi, Sauerkraut)
+- **Log readings** — enter pH, temperature, specific gravity, and gas production
+- **View session details** — see all readings, current stage, and completion predictions
+- **Export data** — download session data as CSV
+- **Delete sessions** — remove completed or unwanted sessions
+
+### REST API
+
+The dashboard exposes a JSON API:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/sessions` | List all sessions |
+| `POST` | `/api/sessions` | Create a session (`{name, type}`) |
+| `GET` | `/api/sessions/:id` | Get session details |
+| `DELETE` | `/api/sessions/:id` | Delete a session |
+| `POST` | `/api/sessions/:id/readings` | Log a reading (`{pH?, temperature?, specificGravity?, gasProduction?}`) |
+| `GET` | `/api/sessions/:id/prediction` | Get completion prediction |
+| `GET` | `/api/sessions/:id/export?format=csv` | Export session as CSV |
+
+### Programmatic Usage
 
 
-### Error Handling
+import { createApp } from '@adametherzlab/fermenter/server';
+
+const app = createApp();
+// Use with any Hono-compatible server
+export default { port: 3000, fetch: app.fetch };
 
 
-import { logReading, SensorValidationError } from '@adametherzlab/fermenter';
+## API Reference
 
-try {
-  logReading(session, { recordedAt: new Date(), pH: 15 });
-} catch (err) {
-  if (err instanceof SensorValidationError) {
-    console.error(err.metric);     // 'pH'
-    console.error(err.value);      // 15
-    console.error(err.validRange); // { min: 0, max: 14, unit: 'pH' }
-  }
-}
+### `createSession(params)`
+Create a new fermentation session.
 
+### `logReading(session, reading)`
+Append a validated reading and recalculate stage/prediction.
 
-## API
+### `predictCompletion(session)`
+Estimate fermentation completion using linear regression.
 
-### `createSession(params)` → `FermentSession`
-Create a new fermentation tracking session.
+### `saveSession(session)` / `loadSession(id)` / `listSessions()` / `deleteSession(id)`
+Persist and retrieve sessions from `~/.fermenter/`.
 
-### `logReading(session, reading)` → `FermentSession`
-Append a validated sensor reading. Throws `SensorValidationError` for invalid data.
-
-### `validateReading(reading, ranges?)` → `void`
-Standalone validation. Throws `SensorValidationError` if any metric is out of range, non-finite, or missing.
-
-### `predictCompletion(session)` → `PredictionResult | null`
-Estimate fermentation completion using linear regression on available metrics.
-
-### `saveSession(session)` / `loadSession(id)` → persistence
-Store and retrieve sessions from disk.
-
-### `exportSessions(sessions, format)` → `string`
+### `exportSessions(sessions, format)`
 Export sessions as JSON or CSV.
 
-### `compareBatches(session1, session2)` → `ComparisonResult`
-Compare two sessions of the same fermentation type.
+### `compareBatches(session1, session2)`
+Compare two sessions of the same type.
+
+### `validateReading(reading, ranges?)`
+Validate sensor data against configurable ranges.
 
 ## License
 

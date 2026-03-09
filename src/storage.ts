@@ -1,7 +1,8 @@
 import * as path from 'path';
 import * as os from 'os';
 import { promises as fs } from 'fs';
-import type { FermentSession, FermentType, ComparisonResult, Reading } from './types.js';
+import { FermentStage, FermentType } from './types.js';
+import type { FermentSession, ComparisonResult, Reading } from './types.js';
 
 const DEFAULT_DATA_DIR = path.join(os.homedir(), '.fermenter');
 
@@ -49,15 +50,13 @@ function deserializeSession(json: string): FermentSession {
 }
 
 function isFsError(error: unknown, code: string): boolean {
-  return error instanceof Error && 'code' in error && error.code === code;
+  return error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === code;
 }
 
 /**
  * Saves a fermentation session to the default data directory.
  * @param session - The FermentSession to serialize and save
  * @throws {Error} If the session is invalid or saving fails
- * @example
- * await saveSession(mySession);
  */
 export async function saveSession(session: FermentSession): Promise<void> {
   validateFermentSession(session);
@@ -71,9 +70,6 @@ export async function saveSession(session: FermentSession): Promise<void> {
  * Loads a fermentation session by ID from the default data directory.
  * @param id - The session ID to load
  * @returns The loaded FermentSession, or undefined if not found
- * @throws {Error} If the session data is invalid
- * @example
- * const session = await loadSession('abc123');
  */
 export async function loadSession(id: string): Promise<FermentSession | undefined> {
   const filePath = path.join(DEFAULT_DATA_DIR, `${id}.json`);
@@ -87,12 +83,50 @@ export async function loadSession(id: string): Promise<FermentSession | undefine
 }
 
 /**
+ * Lists all saved fermentation sessions from the data directory.
+ * @returns Array of all stored FermentSession objects
+ */
+export async function listSessions(): Promise<FermentSession[]> {
+  try {
+    await fs.mkdir(DEFAULT_DATA_DIR, { recursive: true });
+    const files = await fs.readdir(DEFAULT_DATA_DIR);
+    const sessions: FermentSession[] = [];
+    for (const file of files) {
+      if (!file.endsWith('.json')) continue;
+      try {
+        const json = await fs.readFile(path.join(DEFAULT_DATA_DIR, file), 'utf8');
+        sessions.push(deserializeSession(json));
+      } catch {
+        // Skip corrupted files
+      }
+    }
+    return sessions.sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Deletes a fermentation session by ID.
+ * @param id - The session ID to delete
+ * @returns true if deleted, false if not found
+ */
+export async function deleteSession(id: string): Promise<boolean> {
+  const filePath = path.join(DEFAULT_DATA_DIR, `${id}.json`);
+  try {
+    await fs.unlink(filePath);
+    return true;
+  } catch (error) {
+    if (isFsError(error, 'ENOENT')) return false;
+    throw error;
+  }
+}
+
+/**
  * Exports multiple fermentation sessions to JSON or CSV format.
  * @param sessions - Array of sessions to export
  * @param format - Output format ('json' or 'csv')
  * @returns Formatted string in the specified format
- * @example
- * const csv = exportSessions(allSessions, 'csv');
  */
 export function exportSessions(sessions: FermentSession[], format: 'json' | 'csv'): string {
   if (format === 'json') {
@@ -127,8 +161,6 @@ function calculateTimeSeriesAverage(values: (number | undefined)[]): number {
  * @param session2 - Second session to compare
  * @returns ComparisonResult with computed metrics
  * @throws {Error} If sessions are of different types or have no readings
- * @example
- * const result = compareBatches(batch1, batch2);
  */
 export function compareBatches(session1: FermentSession, session2: FermentSession): ComparisonResult {
   if (session1.type !== session2.type) {
@@ -149,7 +181,6 @@ export function compareBatches(session1: FermentSession, session2: FermentSessio
   const gravity1 = calculateTimeSeriesAverage(session1.readings.map(r => r.specificGravity));
   const gravity2 = calculateTimeSeriesAverage(session2.readings.map(r => r.specificGravity));
 
-  const stageMap = { [FermentStage.ACTIVE]: 1, [FermentStage.SLOWING]: 2, [FermentStage.COMPLETE]: 3 };
   const stageCorrelation = session1.currentStage === session2.currentStage ? 1 : 0.5;
 
   return {
