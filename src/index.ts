@@ -25,3 +25,7 @@ export {
 } from './storage.js';
 
 export { createApp } from './server.js';
+
+// Real-time Charting exports
+export { prepareChartData, calculateMetricStats, getLatestChartPoint } from './charting.js';
+export type { ChartData, ChartDataset, ChartOptions } from './charting.js';
