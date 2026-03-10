@@ -4,67 +4,31 @@
  * @module charting
  */
 
-import type { FermentSession, Reading } from './types.js';
-
-/** Dataset configuration for Chart.js */
-export interface ChartDataset {
-  /** Display label for the metric */
-  readonly label: string;
-  /** Data points (null for missing values) */
-  readonly data: (number | null)[];
-  /** RGB color string for the line */
-  readonly borderColor: string;
-  /** RGBA color string for the fill */
-  readonly backgroundColor: string;
-  /** Y-axis identifier for multi-axis charts */
-  readonly yAxisID: string;
-  /** Bezier curve tension (0 = straight lines) */
-  readonly tension: number;
-  /** Point radius */
-  readonly pointRadius: number;
-}
-
-/** Complete chart data structure for Chart.js */
-export interface ChartData {
-  /** ISO timestamp labels */
-  readonly labels: string[];
-  /** Dataset configurations */
-  readonly datasets: ChartDataset[];
-}
-
-/** Options for chart data preparation */
-export interface ChartOptions {
-  /** Metrics to include (defaults to all available) */
-  readonly metrics?: readonly ('specificGravity' | 'pH' | 'temperature' | 'gasProduction')[];
-  /** Start date filter (inclusive) */
-  readonly startDate?: Date;
-  /** End date filter (inclusive) */
-  readonly endDate?: Date;
-}
+import type { FermentSession, Reading, ChartData, ChartDataset, ChartOptions } from './types.js';
 
 /** Metric visualization configuration */
 const METRIC_CONFIG: Record<string, { label: string; color: string; axis: string; unit: string }> = {
-  specificGravity: { 
-    label: 'Specific Gravity', 
-    color: 'rgb(75, 192, 192)', 
+  specificGravity: {
+    label: 'Specific Gravity',
+    color: 'rgb(75, 192, 192)',
     axis: 'y',
     unit: 'SG'
   },
-  pH: { 
-    label: 'pH', 
-    color: 'rgb(255, 99, 132)', 
+  pH: {
+    label: 'pH',
+    color: 'rgb(255, 99, 132)',
     axis: 'y1',
     unit: 'pH'
   },
-  temperature: { 
-    label: 'Temperature (°C)', 
-    color: 'rgb(54, 162, 235)', 
+  temperature: {
+    label: 'Temperature (°C)',
+    color: 'rgb(54, 162, 235)',
     axis: 'y2',
     unit: '°C'
   },
-  gasProduction: { 
-    label: 'Gas Production (L/hr)', 
-    color: 'rgb(255, 206, 86)', 
+  gasProduction: {
+    label: 'Gas Production (L/hr)',
+    color: 'rgb(255, 206, 86)',
     axis: 'y3',
     unit: 'L/hr'
   }
@@ -84,11 +48,11 @@ const METRIC_CONFIG: Record<string, { label: string; color: string; axis: string
  * });
  */
 export function prepareChartData(
-  session: FermentSession, 
+  session: FermentSession,
   options: ChartOptions = {}
 ): ChartData {
   const { metrics, startDate, endDate } = options;
-  
+
   // Filter readings by date range if specified
   const filteredReadings = session.readings.filter((r: Reading) => {
     if (startDate && r.recordedAt < startDate) return false;
@@ -101,7 +65,7 @@ export function prepareChartData(
 
   // Determine which metrics to render
   const availableMetrics = (metrics ?? Object.keys(METRIC_CONFIG)) as Array<keyof Reading>;
-  
+
   // Build datasets for each requested metric that has data
   const datasets: ChartDataset[] = availableMetrics
     .filter((metric): metric is keyof Reading & string => {
@@ -142,9 +106,9 @@ export function calculateMetricStats(
   const values = session.readings
     .map((r: Reading) => r[metric])
     .filter((v): v is number => typeof v === 'number' && !isNaN(v));
-  
+
   if (values.length === 0) return null;
-  
+
   const sum = values.reduce((a, b) => a + b, 0);
   return {
     min: Math.min(...values),
@@ -166,13 +130,13 @@ export function getLatestChartPoint(
 ): { timestamp: string; metrics: Record<string, number> } | null {
   const latest = session.readings[session.readings.length - 1];
   if (!latest) return null;
-  
+
   const metrics: Record<string, number> = {};
   if (latest.specificGravity !== undefined) metrics.specificGravity = latest.specificGravity;
   if (latest.pH !== undefined) metrics.pH = latest.pH;
   if (latest.temperature !== undefined) metrics.temperature = latest.temperature;
   if (latest.gasProduction !== undefined) metrics.gasProduction = latest.gasProduction;
-  
+
   return {
     timestamp: latest.recordedAt.toISOString(),
     metrics

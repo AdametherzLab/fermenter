@@ -5,6 +5,9 @@ export type {
   PredictionResult,
   StorageAdapter,
   ComparisonResult,
+  ChartData,
+  ChartDataset,
+  ChartOptions
 } from './types.js';
 
 export { createSession, logReading, getReadings } from './ferment.js';
@@ -28,4 +31,3 @@ export { createApp } from './server.js';
 
 // Real-time Charting exports
 export { prepareChartData, calculateMetricStats, getLatestChartPoint } from './charting.js';
-export type { ChartData, ChartDataset, ChartOptions } from './charting.js';

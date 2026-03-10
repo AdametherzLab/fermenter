@@ -1,5 +1,3 @@
-import type { FermentStage, FermentType } from './types.js';
-
 /**
  * Type of fermentation being tracked.
  */
@@ -15,6 +13,7 @@ export enum FermentType {
  * Current phase of the fermentation process.
  */
 export enum FermentStage {
+  LAG = 'LAG',
   ACTIVE = 'ACTIVE',
   SLOWING = 'SLOWING',
   COMPLETE = 'COMPLETE',
@@ -73,4 +72,40 @@ export interface ComparisonResult {
   readonly maxTemperatureDelta: number;
   readonly averageGravityDifference: number;
   readonly stageCorrelation: number;
+}
+
+/** Dataset configuration for Chart.js */
+export interface ChartDataset {
+  /** Display label for the metric */
+  readonly label: string;
+  /** Data points (null for missing values) */
+  readonly data: (number | null)[];
+  /** RGB color string for the line */
+  readonly borderColor: string;
+  /** RGBA color string for the fill */
+  readonly backgroundColor: string;
+  /** Y-axis identifier for multi-axis charts */
+  readonly yAxisID: string;
+  /** Bezier curve tension (0 = straight lines) */
+  readonly tension: number;
+  /** Point radius */
+  readonly pointRadius: number;
+}
+
+/** Complete chart data structure for Chart.js */
+export interface ChartData {
+  /** ISO timestamp labels */
+  readonly labels: string[];
+  /** Dataset configurations */
+  readonly datasets: ChartDataset[];
+}
+
+/** Options for chart data preparation */
+export interface ChartOptions {
+  /** Metrics to include (defaults to all available) */
+  readonly metrics?: readonly ('specificGravity' | 'pH' | 'temperature' | 'gasProduction')[];
+  /** Start date filter (inclusive) */
+  readonly startDate?: Date;
+  /** End date filter (inclusive) */
+  readonly endDate?: Date;
 }
